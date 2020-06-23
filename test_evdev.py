@@ -24,7 +24,15 @@ while 42:
     if not events.empty():
         event = events.get_nowait()
         if 'ABS_Y' in str(evdev.categorize(event)):
-          print(event.value)
+          print('ABSY_Y: ', event.value)
+        elif 'ABS_X' in str(evdev.categorize(event)):
+          print('ABSY_X: ', event.value)
+        elif 'ABS_X' in str(evdev.categorize(event)):
+          print('ABSY_X: ', event.value)
+        elif 'ABS_RX' in str(evdev.categorize(event)):
+          print('ABSY_RX: ', event.value)
+        elif 'ABS_RY' in str(evdev.categorize(event)):
+          print('ABSY_RY: ', event.value)
 
     # print('looping')
     # sleep(0.1)
