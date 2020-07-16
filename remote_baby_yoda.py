@@ -10,6 +10,8 @@ dev = evdev.InputDevice('/dev/input/event2')
 events = Queue()
 event_deque = collections.deque()
 
+ServoData = collections.namedtuple("ServoData", "current_angle previous_time rate_lim")
+
 def window_threshold(signal, lower, upper):
   if signal >= upper or signal <= lower:
     return True
@@ -30,33 +32,21 @@ def main():
     t = Thread(target=worker)
     t.start()
 
-    roll_angle = 0
-    pitch_angle = 0
-    yaw_angle = 0
-    arm_angle = 0
-    arm_angle_2 = 0
-
     ABS_X = 0
     ABS_RX = 0
     ABS_RY = 0
     ABS_Z = 90
     ABS_RZ = 0
 
-    previous_roll_angle = 0
-    previous_pitch_angle = 0
-    previous_yaw_angle = 0
-    previous_right_shoulder_angle = 0
-    previous_left_shoulder_angle = 90
-
-    previous_roll_time = time.clock()
-    previous_pitch_time = previous_roll_time
-    previous_yaw_time = previous_pitch_time
-    previous_right_shoulder_time = previous_yaw_time
-    previous_left_shoulder_time = previous_right_shoulder_time
-
     num_servos = 9
     servo_angles = [90] * num_servos
     previous_servo_angles = [0] * num_servos
+
+    yaw_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
+    roll_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
+    pitch_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
+    left_shoulder_data = ServoData(current_angle=0, previous_time=0, rate_lim=200)
+    right_shoulder_data = ServoData(current_angle=0, previous_time=0, rate_lim=200)
 
     start_time = time.clock()
 
@@ -78,46 +68,21 @@ def main():
                 # R2
                 ABS_RZ = np.interp(float(event.value), [0,255], [0,90])
 
-        current_yaw_time = time.clock()
-        yaw_angle = clamp_servo_rate(previous_yaw_angle, ABS_X, (current_yaw_time - previous_yaw_time), 100)
-        previous_yaw_time = current_yaw_time
-        previous_yaw_angle = yaw_angle
+        yaw_data = CleanAngle(ABS_X, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
+        roll_data = CleanAngle(ABS_RX, roll_data.current_angle, roll_data.previous_time, roll_data.rate_lim)
+        pitch_data = CleanAngle(ABS_RY, pitch_data.current_angle, pitch_data.previous_time, pitch_data.rate_lim)
+        left_shoulder_data = CleanAngle(ABS_Z, left_shoulder_data.current_angle, left_shoulder_data.previous_time, left_shoulder_data.rate_lim)
+        right_shoulder_data = CleanAngle(ABS_RZ, right_shoulder_data.current_angle, right_shoulder_data.previous_time, right_shoulder_data.rate_lim)
 
-        servo_0_angle = 90 + yaw_angle
-        servo_angles[0] = servo_0_angle
-
-        current_roll_time = time.clock()
-        roll_angle = clamp_servo_rate(previous_roll_angle, ABS_RX, (current_roll_time - previous_roll_time), 100)
-        previous_roll_time = current_roll_time
-        previous_roll_angle = roll_angle
-
-        current_pitch_time = time.clock()
-        pitch_angle = clamp_servo_rate(previous_pitch_angle, ABS_RY, (current_pitch_time - previous_pitch_time), 100)
-        previous_pitch_time = current_pitch_time
-        previous_pitch_angle = pitch_angle
-        pitch_angle = np.clip(pitch_angle, -30, 60)
-
-        servo_1_angle = np.clip(90 - pitch_angle + roll_angle, 0, 180)
-        servo_2_angle = np.clip(90 + pitch_angle + roll_angle, 0, 180)
-
+        servo_1_angle = np.clip(90 - pitch_data.current_angle + roll_data.current_angle, 0, 180)
+        servo_2_angle = np.clip(90 + pitch_data.current_angle + roll_data.current_angle, 0, 180)
+        servo_angles[0] = 90 + yaw_data.current_angle
         servo_angles[1] = servo_1_angle
         servo_angles[2] = servo_2_angle
-
-        current_left_shoulder_time = time.clock()
-        left_shoulder_angle = clamp_servo_rate(previous_left_shoulder_angle, ABS_Z, (current_left_shoulder_time - previous_left_shoulder_time), 200)
-        previous_left_shoulder_time = current_left_shoulder_time
-        previous_left_shoulder_angle = left_shoulder_angle
-
-        servo_angles[4] = left_shoulder_angle
-        servo_angles[6] = 180 - left_shoulder_angle
-
-        current_right_shoulder_time = time.clock()
-        right_shoulder_angle = clamp_servo_rate(previous_right_shoulder_angle, ABS_RZ, (current_right_shoulder_time - previous_right_shoulder_time), 200)
-        previous_right_shoulder_time = current_right_shoulder_time
-        previous_right_shoulder_angle = right_shoulder_angle
-
-        servo_angles[3] = right_shoulder_angle
-        servo_angles[5] = 90 - right_shoulder_angle
+        servo_angles[4] = left_shoulder_data.current_angle
+        servo_angles[6] = 180 - left_shoulder_data.current_angle
+        servo_angles[3] = right_shoulder_data.current_angle
+        servo_angles[5] = 90 - right_shoulder_data.current_angle
 
         # Writes at 100Hz
         if (time.clock() - start_time) >= 0.01:
@@ -140,6 +105,13 @@ def clamp_servo_rate(previous_command, current_command, time_dt, rate_limit):
 def ServoWrite(servos, servo_angles):
     for i in range(len(servo_angles)):
         servos.servo[i].angle = servo_angles[i]
+
+def CleanAngle(raw_data, previous_angle, previous_time, rate_lim):
+    current_time = time.clock()
+    servo_angle = clamp_servo_rate(previous_angle, raw_data, (current_time - previous_time), rate_lim)
+    servo_stuff = ServoData(current_angle=servo_angle, previous_time=current_time, rate_lim=rate_lim)
+
+    return servo_stuff
 
 
 if __name__ == '__main__':
