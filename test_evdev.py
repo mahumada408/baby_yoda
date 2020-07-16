@@ -3,7 +3,7 @@ from time import sleep
 from threading import Thread
 from queue import Queue
 
-dev = evdev.InputDevice('/dev/input/event2')
+dev = evdev.InputDevice('/dev/input/event8')
 events = Queue()
 
 def window_threshold(signal, lower, upper):
@@ -23,16 +23,17 @@ t.start()
 while 42:
     if not events.empty():
         event = events.get_nowait()
-        if 'ABS_Y' in str(evdev.categorize(event)):
+        # print(evdev.categorize(event))
+        if 'ABS_Z' in str(evdev.categorize(event)):
           print('ABSY_Y: ', event.value)
-        elif 'ABS_X' in str(evdev.categorize(event)):
+        elif 'ABS_RZ' in str(evdev.categorize(event)):
           print('ABSY_X: ', event.value)
-        elif 'ABS_X' in str(evdev.categorize(event)):
-          print('ABSY_X: ', event.value)
-        elif 'ABS_RX' in str(evdev.categorize(event)):
-          print('ABSY_RX: ', event.value)
-        elif 'ABS_RY' in str(evdev.categorize(event)):
-          print('ABSY_RY: ', event.value)
+        # elif 'ABS_X' in str(evdev.categorize(event)):
+        #   print('ABSY_X: ', event.value)
+        # elif 'ABS_RX' in str(evdev.categorize(event)):
+        #   print('ABSY_RX: ', event.value)
+        # elif 'ABS_RY' in str(evdev.categorize(event)):
+        #   print('ABSY_RY: ', event.value)
 
     # print('looping')
     # sleep(0.1)
