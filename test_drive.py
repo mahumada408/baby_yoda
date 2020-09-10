@@ -71,13 +71,13 @@ def main():
     GPIO.setup(in4, GPIO.OUT)
 
     # Default to drive forward
-    GPIO.output(in1, GPIO.HIGH)
-    GPIO.output(in2, GPIO.LOW)
-    GPIO.output(in4, GPIO.HIGH)
-    GPIO.output(in3, GPIO.LOW)
+    GPIO.output(in1, GPIO.LOW)
+    GPIO.output(in2, GPIO.HIGH)
+    GPIO.output(in3, GPIO.HIGH)
+    GPIO.output(in4, GPIO.LOW)
 
     pwm_freq = 1000
-    max_duty = 50
+    max_duty = 100
 
     left = GPIO.PWM(pwm1, pwm_freq)
     right = GPIO.PWM(pwm2, pwm_freq)
@@ -95,7 +95,7 @@ def main():
             elif 'ABS_Y' in str(evdev.categorize(event)):
                 ABS_Y = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_RX' in str(evdev.categorize(event)):
-                ABS_RX = np.interp(float(event.value), [0,255], [-max_duty,max_duty])
+                ABS_RX = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_RY' in str(evdev.categorize(event)):
                 ABS_RY = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_Z' in str(evdev.categorize(event)):
@@ -111,28 +111,60 @@ def main():
 
 def Drive(longitudinal_duty_cycle, lateral_duty_cycle, left_pwm, right_pwm, drive_pins):
     # Split up to left and right.
-    if longitudinal_duty_cycle != 0:
-        left_drive_command = np.sign(longitudinal_duty_cycle) * (longitudinal_duty_cycle + lateral_duty_cycle)
-        right_drive_command = np.sign(longitudinal_duty_cycle) * (longitudinal_duty_cycle - lateral_duty_cycle)
-    else:
-        left_drive_command = lateral_duty_cycle
-        right_drive_command = lateral_duty_cycle
-    print("command: ", left_drive_command, end=' | ')
-    print(right_drive_command)
+    # if longitudinal_duty_cycle != 0:
+    #     left_drive_command = np.sign(longitudinal_duty_cycle) * np.abs(longitudinal_duty_cycle + lateral_duty_cycle)
+    #     right_drive_command = np.sign(longitudinal_duty_cycle) * np.abs(longitudinal_duty_cycle - lateral_duty_cycle)
+    # else:
+    #     left_drive_command = lateral_duty_cycle
+    #     right_drive_command = lateral_duty_cycle
+    # print("command: ", left_drive_command, end=' | ')
+    # print(right_drive_command)
+
+    left_drive_command = longitudinal_duty_cycle + lateral_duty_cycle
+    right_drive_command = longitudinal_duty_cycle - lateral_duty_cycle
+
+    # if longitudinal_duty_cycle > 0:
+    #     print('forward')
+    #     GPIO.output(drive_pins.in1, GPIO.LOW)
+    #     GPIO.output(drive_pins.in2, GPIO.HIGH)
+    #     GPIO.output(drive_pins.in3, GPIO.HIGH)
+    #     GPIO.output(drive_pins.in4, GPIO.LOW)
+    # else:
+    #     print('reverse')
+    #     GPIO.output(drive_pins.in1, GPIO.HIGH)
+    #     GPIO.output(drive_pins.in2, GPIO.LOW)
+    #     GPIO.output(drive_pins.in3, GPIO.LOW)
+    #     GPIO.output(drive_pins.in4, GPIO.HIGH)
 
     # Set driving direction (forward/back).    
-    GPIO.output(drive_pins.in1, int(~(right_drive_command > 0)))
-    GPIO.output(drive_pins.in2, int(right_drive_command > 0))
-    GPIO.output(drive_pins.in4, int(~(left_drive_command > 0)))
-    GPIO.output(drive_pins.in3, int(left_drive_command > 0))
+    # GPIO.output(drive_pins.in1, int(right_drive_command > 0))
+    # GPIO.output(drive_pins.in2, int(right_drive_command < 0))
+    # GPIO.output(drive_pins.in3, int(left_drive_command < 0))
+    # GPIO.output(drive_pins.in4, int(left_drive_command > 0))
 
-    left_drive_command = np.clip(left_drive_command, -50, 50)
-    right_drive_command = np.clip(right_drive_command, -50, 50)
+    print(longitudinal_duty_cycle)
+    # print(window_threshold(longitudinal_duty_cycle, 5))
+    if WindowThresh(longitudinal_duty_cycle, 5):
+        GPIO.output(drive_pins.in1, int(longitudinal_duty_cycle < 0))
+        GPIO.output(drive_pins.in2, int(longitudinal_duty_cycle > 0))
+        GPIO.output(drive_pins.in3, int(longitudinal_duty_cycle > 0))
+        GPIO.output(drive_pins.in4, int(longitudinal_duty_cycle < 0))
+    else:
+        GPIO.output(drive_pins.in1, int(right_drive_command > 0))
+        GPIO.output(drive_pins.in2, int(right_drive_command < 0))
+        GPIO.output(drive_pins.in3, int(left_drive_command < 0))
+        GPIO.output(drive_pins.in4, int(left_drive_command > 0))
+
+    left_drive_command = np.clip(left_drive_command, -100, 100)
+    right_drive_command = np.clip(right_drive_command, -100, 100)
     
     left_pwm.ChangeDutyCycle(np.abs(left_drive_command))
     right_pwm.ChangeDutyCycle(np.abs(right_drive_command))
-    
 
+def WindowThresh(signal, threshold):
+    if signal >= np.abs(threshold) or signal <= -np.abs(threshold):
+        return True
+    return False
 
 if __name__ == '__main__':
     main()
