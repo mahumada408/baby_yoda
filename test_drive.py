@@ -91,7 +91,7 @@ def main():
             # event = events.get_nowait()
             event = event_deque.popleft()
             if 'ABS_X' in str(evdev.categorize(event)):
-                ABS_X = np.interp(float(event.value), [0,255], [-45,45])
+                ABS_X = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_Y' in str(evdev.categorize(event)):
                 ABS_Y = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_RX' in str(evdev.categorize(event)):
@@ -105,7 +105,7 @@ def main():
                 # R2
                 ABS_RZ = np.interp(float(event.value), [0,255], [0,90])
 
-        Drive(ABS_Y, ABS_RX, left, right, drive_pins)
+        Drive(ABS_Y, ABS_X, left, right, drive_pins)
         # left.ChangeDutyCycle(np.abs(ABS_RY))
         # right.ChangeDutyCycle(np.abs(ABS_RY))
 
@@ -144,7 +144,7 @@ def Drive(longitudinal_duty_cycle, lateral_duty_cycle, left_pwm, right_pwm, driv
 
     print(longitudinal_duty_cycle)
     # print(window_threshold(longitudinal_duty_cycle, 5))
-    if WindowThresh(longitudinal_duty_cycle, 5):
+    if WindowThresh(longitudinal_duty_cycle, 10):
         GPIO.output(drive_pins.in1, int(longitudinal_duty_cycle < 0))
         GPIO.output(drive_pins.in2, int(longitudinal_duty_cycle > 0))
         GPIO.output(drive_pins.in3, int(longitudinal_duty_cycle > 0))

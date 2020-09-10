@@ -5,12 +5,15 @@ from queue import Queue
 import collections
 import numpy as np
 from adafruit_servokit import ServoKit
+import RPi.GPIO as GPIO
+
 
 dev = evdev.InputDevice('/dev/input/event2')
 events = Queue()
 event_deque = collections.deque()
 
 ServoData = collections.namedtuple("ServoData", "current_angle previous_time rate_lim")
+DrivePins = collections.namedtuple("DrivePins", "pwm1 pwm2 in1 in2 in3 in4")
 
 def window_threshold(signal, lower, upper):
   if signal >= upper or signal <= lower:
@@ -33,6 +36,7 @@ def main():
     t.start()
 
     ABS_X = 0
+    ABS_Y = 0
     ABS_RX = 0
     ABS_RY = 0
     ABS_Z = 90
@@ -50,13 +54,46 @@ def main():
 
     start_time = time.clock()
 
+    # Setup for drive system.
+    pwm1 = 16
+    pwm2 = 13
+    in1 = 20
+    in2 = 21
+    in3 = 5
+    in4 = 6
+    drive_pins = DrivePins(pwm1=16, pwm2=13, in1=20, in2=21, in3=5, in4=6)
+
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(pwm1, GPIO.OUT)
+    GPIO.setup(pwm2, GPIO.OUT)
+    GPIO.setup(in1, GPIO.OUT)
+    GPIO.setup(in2, GPIO.OUT)
+    GPIO.setup(in3, GPIO.OUT)
+    GPIO.setup(in4, GPIO.OUT)
+
+    # Default to drive forward
+    GPIO.output(in1, GPIO.LOW)
+    GPIO.output(in2, GPIO.HIGH)
+    GPIO.output(in3, GPIO.HIGH)
+    GPIO.output(in4, GPIO.LOW)
+
+    pwm_freq = 1000
+    max_duty = 100
+
+    left = GPIO.PWM(pwm1, pwm_freq)
+    right = GPIO.PWM(pwm2, pwm_freq)
+    left.start(0) # Start at 0% duty cycle
+    right.start(0) # Start at 0% duty cycle
+
     while True:
         # if not events.empty():
         if event_deque:
             # event = events.get_nowait()
             event = event_deque.popleft()
             if 'ABS_X' in str(evdev.categorize(event)):
-                ABS_X = np.interp(float(event.value), [0,255], [-45,45])
+                ABS_X = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
+            elif 'ABS_Y' in str(evdev.categorize(event)):
+                ABS_Y = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_RX' in str(evdev.categorize(event)):
                 ABS_RX = np.interp(float(event.value), [0,255], [-45,45])
             elif 'ABS_RY' in str(evdev.categorize(event)):
@@ -68,7 +105,7 @@ def main():
                 # R2
                 ABS_RZ = np.interp(float(event.value), [0,255], [0,90])
 
-        yaw_data = CleanAngle(ABS_X, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
+        yaw_data = CleanAngle(0, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
         roll_data = CleanAngle(ABS_RX, roll_data.current_angle, roll_data.previous_time, roll_data.rate_lim)
         pitch_data = CleanAngle(ABS_RY, pitch_data.current_angle, pitch_data.previous_time, pitch_data.rate_lim)
         left_shoulder_data = CleanAngle(ABS_Z, left_shoulder_data.current_angle, left_shoulder_data.previous_time, left_shoulder_data.rate_lim)
@@ -87,6 +124,7 @@ def main():
         # Writes at 100Hz
         if (time.clock() - start_time) >= 0.01:
             ServoWrite(kit, servo_angles)
+            Drive(ABS_Y, ABS_X, left, right, drive_pins)
             start_time = time.clock()
 
 
@@ -112,6 +150,32 @@ def CleanAngle(raw_data, previous_angle, previous_time, rate_lim):
     servo_stuff = ServoData(current_angle=servo_angle, previous_time=current_time, rate_lim=rate_lim)
 
     return servo_stuff
+
+def Drive(longitudinal_duty_cycle, lateral_duty_cycle, left_pwm, right_pwm, drive_pins):
+    left_drive_command = longitudinal_duty_cycle + lateral_duty_cycle
+    right_drive_command = longitudinal_duty_cycle - lateral_duty_cycle
+
+    if WindowThresh(longitudinal_duty_cycle, 10):
+        GPIO.output(drive_pins.in1, int(longitudinal_duty_cycle < 0))
+        GPIO.output(drive_pins.in2, int(longitudinal_duty_cycle > 0))
+        GPIO.output(drive_pins.in3, int(longitudinal_duty_cycle > 0))
+        GPIO.output(drive_pins.in4, int(longitudinal_duty_cycle < 0))
+    else:
+        GPIO.output(drive_pins.in1, int(right_drive_command > 0))
+        GPIO.output(drive_pins.in2, int(right_drive_command < 0))
+        GPIO.output(drive_pins.in3, int(left_drive_command < 0))
+        GPIO.output(drive_pins.in4, int(left_drive_command > 0))
+
+    left_drive_command = np.clip(left_drive_command, -100, 100)
+    right_drive_command = np.clip(right_drive_command, -100, 100)
+    
+    left_pwm.ChangeDutyCycle(np.abs(left_drive_command))
+    right_pwm.ChangeDutyCycle(np.abs(right_drive_command))
+
+def WindowThresh(signal, threshold):
+    if signal >= np.abs(threshold) or signal <= -np.abs(threshold):
+        return True
+    return False
 
 
 if __name__ == '__main__':
