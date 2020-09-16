@@ -41,10 +41,11 @@ def main():
     ABS_Y = 0
     ABS_RX = 0
     ABS_RY = 0
-    ABS_Z = 90
+    ABS_Z = 0
     ABS_RZ = 0
     r1_held = False
     l1_held = False
+    x_held = 1
     yaw = 0
 
     num_servos = 9
@@ -83,14 +84,15 @@ def main():
     GPIO.output(in4, GPIO.LOW)
 
     pwm_freq = 100
-    max_duty = 50
+    max_duty = 20
 
     left = GPIO.PWM(pwm1, pwm_freq)
     right = GPIO.PWM(pwm2, pwm_freq)
     left.start(0) # Start at 0% duty cycle
     right.start(0) # Start at 0% duty cycle
-    left_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=1000)
-    right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=1000)
+    max_accel = 50
+    left_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
+    right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
 
     while True:
@@ -99,8 +101,10 @@ def main():
             # event = events.get_nowait()
             event = event_deque.popleft()
             if 'ABS_X' in str(evdev.categorize(event)):
+                max_duty = 50
                 ABS_X = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_Y' in str(evdev.categorize(event)):
+                max_duty = 20
                 ABS_Y = -np.interp(float(event.value), [0,255], [-max_duty,max_duty])
             elif 'ABS_RX' in str(evdev.categorize(event)):
                 ABS_RX = np.interp(float(event.value), [0,255], [-45,45])
@@ -108,22 +112,30 @@ def main():
                 ABS_RY = -np.interp(float(event.value), [0,255], [-60,60])
             elif 'ABS_Z' in str(evdev.categorize(event)):
                 # L2
-                ABS_Z = np.interp(float(event.value), [0,255], [90,180])
+                # ABS_Z = np.interp(float(event.value), [0,255], [90,180])
+                max_duty = 50
+                ABS_Z = np.interp(float(event.value), [0,255], [0,x_held * max_duty])
             elif 'ABS_RZ' in str(evdev.categorize(event)):
                 # R2
                 ABS_RZ = np.interp(float(event.value), [0,255], [0,90])
             elif 'BTN_TR' in str(evdev.categorize(event)):
                 # R1
-                if int(event.value):
+                if int(event.value) and int(event.code) == 311:
                     r1_held = True
                 else:
                     r1_held = False
             elif 'BTN_TL' in str(evdev.categorize(event)):
                 # L1
-                if int(event.value):
+                if int(event.value) and int(event.code) == 310:
                     l1_held = True
                 else:
                     l1_held = False
+            elif 'BTN_A' in str(evdev.categorize(event)):
+                # R1
+                if int(event.value):
+                    x_held = -1
+                else:
+                    x_held = 1
 
         if r1_held:
             yaw = np.clip(yaw + 0.1, -45, 45)
@@ -133,7 +145,7 @@ def main():
         yaw_data = CleanAngle(yaw, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
         roll_data = CleanAngle(ABS_RX, roll_data.current_angle, roll_data.previous_time, roll_data.rate_lim)
         pitch_data = CleanAngle(ABS_RY, pitch_data.current_angle, pitch_data.previous_time, pitch_data.rate_lim)
-        left_shoulder_data = CleanAngle(ABS_Z, left_shoulder_data.current_angle, left_shoulder_data.previous_time, left_shoulder_data.rate_lim)
+        left_shoulder_data = CleanAngle(90, left_shoulder_data.current_angle, left_shoulder_data.previous_time, left_shoulder_data.rate_lim)
         right_shoulder_data = CleanAngle(ABS_RZ, right_shoulder_data.current_angle, right_shoulder_data.previous_time, right_shoulder_data.rate_lim)
 
         servo_1_angle = np.clip(90 - pitch_data.current_angle + roll_data.current_angle, 0, 180)
@@ -149,7 +161,7 @@ def main():
         # Writes at 100Hz
         if (time.clock() - start_time) >= 0.01:
             ServoWrite(kit, servo_angles)
-            all_commands = Drive(ABS_Y, ABS_X, left, right, drive_pins, all_commands)
+            all_commands = Drive(ABS_Z, ABS_X, left, right, drive_pins, all_commands)
             start_time = time.clock()
 
 
@@ -202,8 +214,8 @@ def Drive(longitudinal_duty_cycle, lateral_duty_cycle, left_pwm, right_pwm, driv
     
     new_all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
     
-    left_pwm.ChangeDutyCycle(np.abs(left_drive_command_test))
-    right_pwm.ChangeDutyCycle(np.abs(right_drive_command_test))
+    left_pwm.ChangeDutyCycle(np.abs(left_drive_command))
+    right_pwm.ChangeDutyCycle(np.abs(right_drive_command))
     return new_all_commands
 
 def WindowThresh(signal, threshold):
