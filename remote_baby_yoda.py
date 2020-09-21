@@ -1,6 +1,6 @@
 import evdev
 import time
-from threading import Thread
+import threading
 from queue import Queue
 import collections
 import numpy as np
@@ -32,7 +32,7 @@ def worker():
 def main():
     kit = ServoKit(channels=16)
 
-    t = Thread(target=worker)
+    t = threading.Thread(target=worker)
     t.start()
 
     ABS_X = 0
@@ -200,17 +200,20 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
+        playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
         if (time.clock() - timestamp) >= 0.01:
-            servo_commands = ServoWrite(kit, servo_angles)
+            if not playback_thread.is_alive():
+                print('writing')
+                servo_commands = ServoWrite(kit, servo_angles)
             all_commands = Drive(ABS_Z, ABS_X, left, right, drive_pins, all_commands)
             timestamp = time.clock()
             if record_servos:
                 servo_recording.append([servo_commands, timestamp])
             if triangle:
                 # playback
-                PlaybackRecording(kit, servo_recording)
+                playback_thread.start()
+                # PlaybackRecording(kit, servo_recording)
                 triangle = False
-
 
 
 # Algorithm from
@@ -277,6 +280,7 @@ def PlaybackRecording(servo_kit, servo_recording):
     recording_start_time = servo_states[1]
     current_start_time = time.clock()
     for servo_states in servo_recording:
+        print('hey', flush=True)
         # servo_states = servo_recording.popleft()
         time.sleep(servo_states[1] - recording_start_time)
         ServoWrite(servo_kit, servo_states[0])
