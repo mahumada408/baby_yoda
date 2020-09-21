@@ -30,9 +30,7 @@ def worker():
           event_deque.append(event)
 
 def main():
-
     kit = ServoKit(channels=16)
-    counter = 0
 
     t = Thread(target=worker)
     t.start()
@@ -57,7 +55,6 @@ def main():
 
     num_servos = 9
     servo_angles = [90] * num_servos
-    previous_servo_angles = [0] * num_servos
 
     yaw_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
     roll_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
@@ -66,7 +63,7 @@ def main():
     shoulder_2_data = ServoData(current_angle=shoulder_2, previous_time=0, rate_lim=200)
     elbow_data = ServoData(current_angle=0, previous_time=0, rate_lim=200)
 
-    start_time = time.clock()
+    timestamp = time.clock()
 
     # Setup for drive system.
     pwm1 = 16
@@ -103,6 +100,12 @@ def main():
     right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
 
+    # servo_recording = collections.deque()
+    servo_recording = []
+    record_servos = False
+    last_r1 = 0
+    triangle = False
+
     while True:
         # if not events.empty():
         if event_deque:
@@ -129,9 +132,7 @@ def main():
             elif 'BTN_TR' in str(evdev.categorize(event)):
                 # R1
                 if int(event.value) and int(event.code) == 311:
-                    r1_held = True
-                else:
-                    r1_held = False
+                    record_servos = ~record_servos
             elif 'BTN_TL' in str(evdev.categorize(event)):
                 # L1
                 if int(event.value) and int(event.code) == 310:
@@ -147,6 +148,9 @@ def main():
             elif 'BTN_Y' in str(evdev.categorize(event)):
                 # square
                 square_held = True if int(event.value) else False
+            elif 'BTN_X' in str(evdev.categorize(event)):
+                # triangle
+                triangle = ~triangle if int(event.value) else triangle
             elif 'BTN_B' in str(evdev.categorize(event)):
                 # circle
                 o_held = True if int(event.value) else False
@@ -196,10 +200,17 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
-        if (time.clock() - start_time) >= 0.01:
-            ServoWrite(kit, servo_angles)
+        if (time.clock() - timestamp) >= 0.01:
+            servo_commands = ServoWrite(kit, servo_angles)
             all_commands = Drive(ABS_Z, ABS_X, left, right, drive_pins, all_commands)
-            start_time = time.clock()
+            timestamp = time.clock()
+            if record_servos:
+                servo_recording.append([servo_commands, timestamp])
+            if triangle:
+                # playback
+                PlaybackRecording(kit, servo_recording)
+                triangle = False
+
 
 
 # Algorithm from
@@ -217,6 +228,7 @@ def ClampRate(previous_command, current_command, time_dt, rate_limit):
 def ServoWrite(servos, servo_angles):
     for i in range(len(servo_angles)):
         servos.servo[i].angle = servo_angles[i]
+    return servo_angles.copy()
 
 def CleanAngle(raw_data, previous_angle, previous_time, rate_lim):
     current_time = time.clock()
@@ -259,6 +271,17 @@ def WindowThresh(signal, threshold):
     if signal >= np.abs(threshold) or signal <= -np.abs(threshold):
         return True
     return False
+def PlaybackRecording(servo_kit, servo_recording):
+    # servo_states = servo_recording.popleft()
+    servo_states = servo_recording[0]
+    recording_start_time = servo_states[1]
+    current_start_time = time.clock()
+    for servo_states in servo_recording:
+        # servo_states = servo_recording.popleft()
+        time.sleep(servo_states[1] - recording_start_time)
+        ServoWrite(servo_kit, servo_states[0])
+        recording_start_time = servo_states[1]
+    print("done")
 
 
 if __name__ == '__main__':
