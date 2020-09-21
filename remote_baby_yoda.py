@@ -45,8 +45,15 @@ def main():
     ABS_RZ = 0
     r1_held = False
     l1_held = False
+    square_held = False
+    o_held = False
     x_held = 1
     yaw = 0
+    elbow = 90
+    shoulder_1 = 45
+    shoulder_2 = 90
+    up_down = 0
+    left_right = 0
 
     num_servos = 9
     servo_angles = [90] * num_servos
@@ -55,8 +62,9 @@ def main():
     yaw_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
     roll_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
     pitch_data = ServoData(current_angle=0, previous_time=0, rate_lim=100)
-    left_shoulder_data = ServoData(current_angle=0, previous_time=0, rate_lim=200)
-    right_shoulder_data = ServoData(current_angle=0, previous_time=0, rate_lim=200)
+    shoulder_1_data = ServoData(current_angle=shoulder_1, previous_time=0, rate_lim=200)
+    shoulder_2_data = ServoData(current_angle=shoulder_2, previous_time=0, rate_lim=200)
+    elbow_data = ServoData(current_angle=0, previous_time=0, rate_lim=200)
 
     start_time = time.clock()
 
@@ -117,7 +125,7 @@ def main():
                 ABS_Z = np.interp(float(event.value), [0,255], [0,x_held * max_duty])
             elif 'ABS_RZ' in str(evdev.categorize(event)):
                 # R2
-                ABS_RZ = np.interp(float(event.value), [0,255], [0,90])
+                ABS_RZ = np.interp(float(event.value), [0,255], [10,90])
             elif 'BTN_TR' in str(evdev.categorize(event)):
                 # R1
                 if int(event.value) and int(event.code) == 311:
@@ -131,32 +139,61 @@ def main():
                 else:
                     l1_held = False
             elif 'BTN_A' in str(evdev.categorize(event)):
-                # R1
+                # x
                 if int(event.value):
                     x_held = -1
                 else:
                     x_held = 1
+            elif 'BTN_Y' in str(evdev.categorize(event)):
+                # square
+                square_held = True if int(event.value) else False
+            elif 'BTN_B' in str(evdev.categorize(event)):
+                # circle
+                o_held = True if int(event.value) else False
+            elif 'ABS_HAT0Y' in str(evdev.categorize(event)):
+                # d pad up down
+                up_down = float(event.value)
+            elif 'ABS_HAT0X' in str(evdev.categorize(event)):
+                # d pad right left
+                left_right = float(event.value)
 
         if r1_held:
             yaw = np.clip(yaw + 0.1, -45, 45)
         if l1_held:
             yaw = np.clip(yaw - 0.1, -45, 45)
+        if square_held:
+            elbow = np.clip(elbow + 0.05, 0, 180)
+        if o_held:
+            elbow = np.clip(elbow - 0.05, 0, 180)
+        if up_down != 0:
+            shoulder_2 = np.clip(shoulder_2 - up_down/20, 45, 135)
+        if left_right != 0:
+            shoulder_1 = np.clip(shoulder_1 - left_right/20, 10, 90)
 
         yaw_data = CleanAngle(yaw, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
         roll_data = CleanAngle(ABS_RX, roll_data.current_angle, roll_data.previous_time, roll_data.rate_lim)
         pitch_data = CleanAngle(ABS_RY, pitch_data.current_angle, pitch_data.previous_time, pitch_data.rate_lim)
-        left_shoulder_data = CleanAngle(90, left_shoulder_data.current_angle, left_shoulder_data.previous_time, left_shoulder_data.rate_lim)
-        right_shoulder_data = CleanAngle(ABS_RZ, right_shoulder_data.current_angle, right_shoulder_data.previous_time, right_shoulder_data.rate_lim)
+        shoulder_1_data = CleanAngle(shoulder_1, shoulder_1_data.current_angle, shoulder_1_data.previous_time, shoulder_1_data.rate_lim)
+        shoulder_2_data = CleanAngle(shoulder_2, shoulder_2_data.current_angle, shoulder_2_data.previous_time, shoulder_2_data.rate_lim)
+        elbow_data = CleanAngle(elbow, elbow_data.current_angle, elbow_data.previous_time, elbow_data.rate_lim)
 
         servo_1_angle = np.clip(90 - pitch_data.current_angle + roll_data.current_angle, 0, 180)
         servo_2_angle = np.clip(90 + pitch_data.current_angle + roll_data.current_angle, 0, 180)
         servo_angles[0] = 90 + yaw_data.current_angle
         servo_angles[1] = servo_1_angle
         servo_angles[2] = servo_2_angle
-        servo_angles[4] = left_shoulder_data.current_angle
-        servo_angles[6] = 180 - left_shoulder_data.current_angle
-        servo_angles[3] = right_shoulder_data.current_angle
-        servo_angles[5] = 90 - right_shoulder_data.current_angle
+
+        # Shoulder 1
+        servo_angles[3] = shoulder_1_data.current_angle
+        servo_angles[6] = 90 - shoulder_1_data.current_angle
+
+        # Shoulder 2
+        servo_angles[4] = shoulder_2_data.current_angle
+        servo_angles[7] = 180 - shoulder_2_data.current_angle
+
+        # Elbow
+        servo_angles[5] = elbow_data.current_angle
+        servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
         if (time.clock() - start_time) >= 0.01:
