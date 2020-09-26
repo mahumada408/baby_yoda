@@ -200,19 +200,20 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
-        playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
         if (time.clock() - timestamp) >= 0.01:
-            if not playback_thread.is_alive():
-                print('writing')
+            if len(threading.enumerate()) == 2:
+                time1 = time.clock()
                 servo_commands = ServoWrite(kit, servo_angles)
+                timestamp = time.clock()
+                print("og: ", timestamp - time1)
+                if record_servos:
+                    servo_recording.append([servo_commands, timestamp])
             all_commands = Drive(ABS_Z, ABS_X, left, right, drive_pins, all_commands)
-            timestamp = time.clock()
-            if record_servos:
-                servo_recording.append([servo_commands, timestamp])
+            
             if triangle:
                 # playback
+                playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
                 playback_thread.start()
-                # PlaybackRecording(kit, servo_recording)
                 triangle = False
 
 
@@ -275,17 +276,20 @@ def WindowThresh(signal, threshold):
         return True
     return False
 def PlaybackRecording(servo_kit, servo_recording):
-    # servo_states = servo_recording.popleft()
     servo_states = servo_recording[0]
     recording_start_time = servo_states[1]
     current_start_time = time.clock()
+    servo_recording.pop(0)
     for servo_states in servo_recording:
-        print('hey', flush=True)
-        # servo_states = servo_recording.popleft()
-        time.sleep(servo_states[1] - recording_start_time)
+        # print('hey', flush=True)
+        time1 = time.clock()
         ServoWrite(servo_kit, servo_states[0])
+        time2 = time.clock()
+        print("servo write time: ", time2- time1)
+        print("recording time: ", servo_states[1] - recording_start_time)
+        time.sleep((servo_states[1] - recording_start_time))
         recording_start_time = servo_states[1]
-    print("done")
+    print("done", flush=True)
 
 
 if __name__ == '__main__':
