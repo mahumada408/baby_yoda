@@ -31,6 +31,8 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('--json_dir', default=max,
                     help='directory of json files')
+  parser.add_argument('--show_plot', action='store_true',
+                    help='Show visual animation')
   args = parser.parse_args()
   listdir = os.listdir(args.json_dir)
   listdir.sort()
@@ -119,21 +121,27 @@ def main():
 
   print(body_dictionary["Nose"])
 
-  # Attaching axis to the figure
-  fig = plt.figure()
-  ax = plt.axes(xlim=(-960, 0), ylim=(-720,0))
+  if args.show_plot:
+    # Attaching axis to the figure
+    fig = plt.figure()
+    ax = plt.axes(xlim=(-960, 0), ylim=(-720,0))
 
-  # Initialize scatter
-  scatter = ax.scatter(body_dictionary["Nose"][0,0], body_dictionary["Nose"][0,1])
+    # Initialize scatter
+    scatter = ax.scatter(body_dictionary["Nose"][0,0], body_dictionary["Nose"][0,1])
 
-  # Number of iterations
-  iterations = len(body_dictionary["Nose"])
+    # Number of iterations
+    iterations = len(body_dictionary["Nose"])
 
-  ani = FuncAnimation(fig, animate_scatters, iterations, fargs=(body_dictionary, scatter),
-                                      interval=40, blit=False, repeat=True)
+    ani = FuncAnimation(fig, animate_scatters, iterations, fargs=(body_dictionary, scatter),
+                                        interval=40, blit=False, repeat=True)
 
-  # anim.save('test.gif', writer='imagemagick')
-  plt.show()
+    # anim.save('test.gif', writer='imagemagick')
+    plt.show()
+  
+  face_angle_points = body_dictionary["LEar"][:,0:2] - body_dictionary["REar"][:,0:2]
+  face_angles = np.arctan2(face_angle_points[:, 0], face_angle_points[:, 1]) * 180/np.pi
+  print(face_angles[0] - face_angles)
+
 
 if __name__ == '__main__':
     main()
