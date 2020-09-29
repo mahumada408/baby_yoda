@@ -106,6 +106,18 @@ def main():
     last_r1 = 0
     triangle = False
 
+    # Read from file.
+    pose_data = np.genfromtxt('data/face_angles_timestamp.csv', delimiter=',')
+    pose_servo_record = []
+    current_servo_angle = servo_angles
+    for angle in pose_data:
+        roll_data = CleanAngle(angle[0], roll_data.current_angle, roll_data.previous_time, roll_data.rate_lim)
+        servo_1_angle = np.clip(90 + roll_data.current_angle, 0, 180)
+        servo_2_angle = np.clip(90 + roll_data.current_angle, 0, 180)
+        current_servo_angle[1] = servo_1_angle
+        current_servo_angle[2] = servo_2_angle
+        pose_servo_record.append([current_servo_angle, angle[1]])
+
     while True:
         # if not events.empty():
         if event_deque:
@@ -212,7 +224,8 @@ def main():
             
             if triangle:
                 # playback
-                playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
+                # playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
+                playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, pose_servo_record))
                 playback_thread.start()
                 triangle = False
 
