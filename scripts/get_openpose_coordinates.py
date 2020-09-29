@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import matplotlib.cm as cm
+import cv2
 # import openpose as op
 
 def animate_scatters(iteration, data, scatter):
@@ -33,6 +34,8 @@ def main():
                     help='directory of json files')
   parser.add_argument('--show_plot', action='store_true',
                     help='Show visual animation')
+  parser.add_argument('--video', default=max,
+                    help='video file')
   args = parser.parse_args()
   listdir = os.listdir(args.json_dir)
   listdir.sort()
@@ -140,7 +143,24 @@ def main():
   
   face_angle_points = body_dictionary["LEar"][:,0:2] - body_dictionary["REar"][:,0:2]
   face_angles = np.arctan2(face_angle_points[:, 0], face_angle_points[:, 1]) * 180/np.pi
-  print(face_angles[0] - face_angles)
+  face_angles = face_angles[0] - face_angles
+  video = cv2.VideoCapture(args.video)
+  fps = video.get(cv2.CAP_PROP_FPS)
+  total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+  print('fps: ', fps)
+  print('total: ', total)
+  print('total time: ', (total/fps))
+  face_angles_timestamp = np.zeros((1,2))
+  timestamp = 0
+  for angle in face_angles:
+    face_angles_timestamp = np.append(face_angles_timestamp, np.array([angle, timestamp]).reshape(1,2), axis=0)
+    timestamp += 1/fps
+  face_angles_timestamp = np.delete(face_angles_timestamp, 0, 0)
+  hz_100_total = int(100*(total/fps))
+  hz_100_timeline = np.linspace(0,total/fps, num=hz_100_total)
+  face_angles_100_hz = np.concatenate((np.interp(hz_100_timeline, face_angles_timestamp[:,0], face_angles_timestamp[:,1]).reshape(hz_100_total,1),hz_100_timeline.reshape(hz_100_total,1)), axis=1)
+  print(face_angles_100_hz)
+  np.savetxt("face_angles_timestamp.csv", face_angles_100_hz, delimiter=',')
 
 
 if __name__ == '__main__':
