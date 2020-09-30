@@ -142,13 +142,13 @@ def main():
     plt.show()
   
   face_angle_points = body_dictionary["LEar"][:,0:2] - body_dictionary["REar"][:,0:2]
-  face_angles = np.arctan2(face_angle_points[:, 0], face_angle_points[:, 1]) * 180/np.pi
-  face_angles = face_angles[0] - face_angles
+  face_angles_rad = np.arctan2(face_angle_points[:, 1], face_angle_points[:, 0])
+  face_angles = np.unwrap((face_angles_rad[0] - face_angles_rad)) * 180/np.pi
   video = cv2.VideoCapture(args.video)
-  fps = video.get(cv2.CAP_PROP_FPS)
+  fps = video.get(cv2.CAP_PROP_FPS) * 2
   total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
   print('fps: ', fps)
-  print('total: ', total)
+  print('total frames: ', total)
   print('total time: ', (total/fps))
   face_angles_timestamp = np.zeros((1,2))
   timestamp = 0
@@ -158,9 +158,12 @@ def main():
   face_angles_timestamp = np.delete(face_angles_timestamp, 0, 0)
   hz_100_total = int(100*(total/fps))
   hz_100_timeline = np.linspace(0,total/fps, num=hz_100_total)
-  face_angles_100_hz = np.concatenate((np.interp(hz_100_timeline, face_angles_timestamp[:,0], face_angles_timestamp[:,1]).reshape(hz_100_total,1),hz_100_timeline.reshape(hz_100_total,1)), axis=1)
+  face_angles_100_hz = np.concatenate((hz_100_timeline.reshape(hz_100_total,1), np.interp(hz_100_timeline, face_angles_timestamp[:,1], face_angles_timestamp[:,0]).reshape(hz_100_total,1)), axis=1)
   print(face_angles_100_hz)
-  np.savetxt("face_angles_timestamp.csv", face_angles_100_hz, delimiter=',')
+  np.savetxt("face_angles_timestamp_500.csv", face_angles_100_hz, delimiter=',')
+
+  plt.scatter(face_angles_100_hz[:,0], face_angles_100_hz[:,1])
+  plt.show()
 
 
 if __name__ == '__main__':
