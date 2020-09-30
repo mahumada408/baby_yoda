@@ -107,17 +107,17 @@ def main():
     triangle = False
 
     # Read from file.
-    pose_data = np.genfromtxt('data/face_angles_timestamp_left_right.csv', delimiter=',')
+    pose_data = np.genfromtxt('data/face_angles_filtered.csv', delimiter=',')
     pose_servo_record = []
     current_servo_angle = servo_angles
     for angle in pose_data:
-        roll_angle = angle[0]
+        roll_angle = angle[1]
         servo_1_angle = np.clip(90 + roll_angle, 0, 180)
         servo_2_angle = np.clip(90 + roll_angle, 0, 180)
         current_servo_angle[1] = servo_1_angle
         current_servo_angle[2] = servo_2_angle
         print(servo_1_angle)
-        pose_servo_record.append([current_servo_angle.copy(), angle[1]])
+        pose_servo_record.append([current_servo_angle.copy(), angle[0]])
     print(pose_servo_record[0][0][1])
     print(pose_servo_record[-1][0][1])
 
@@ -227,8 +227,9 @@ def main():
             if triangle:
                 # playback
                 # playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
-                playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, pose_servo_record))
-                playback_thread.start()
+                # playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, pose_servo_record))
+                # playback_thread.start()
+                PlaybackRecording(kit, pose_servo_record)
                 triangle = False
 
 
@@ -297,11 +298,12 @@ def PlaybackRecording(servo_kit, servo_recording):
     servo_recording.pop(0)
     for servo_states in servo_recording:
         # print('hey', flush=True)
-        print(servo_states[0][1], servo_states[0][2], servo_states[1])
+        # print(servo_states[0][1], servo_states[0][2], servo_states[1])
         time1 = time.clock()
         for i in range(len(servo_states[0])):
             servo_kit.servo[i].angle = servo_states[0][i]
         time2 = time.clock()
+        print(time2 - time1)
         time.sleep((servo_states[1] - recording_start_time))
         recording_start_time = servo_states[1]
     print("done", flush=True)
