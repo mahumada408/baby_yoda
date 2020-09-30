@@ -107,16 +107,19 @@ def main():
     triangle = False
 
     # Read from file.
-    pose_data = np.genfromtxt('data/face_angles_timestamp.csv', delimiter=',')
+    pose_data = np.genfromtxt('data/face_angles_timestamp_left_right.csv', delimiter=',')
     pose_servo_record = []
     current_servo_angle = servo_angles
     for angle in pose_data:
-        roll_data = CleanAngle(angle[0], roll_data.current_angle, roll_data.previous_time, roll_data.rate_lim)
-        servo_1_angle = np.clip(90 + roll_data.current_angle, 0, 180)
-        servo_2_angle = np.clip(90 + roll_data.current_angle, 0, 180)
+        roll_angle = angle[0]
+        servo_1_angle = np.clip(90 + roll_angle, 0, 180)
+        servo_2_angle = np.clip(90 + roll_angle, 0, 180)
         current_servo_angle[1] = servo_1_angle
         current_servo_angle[2] = servo_2_angle
-        pose_servo_record.append([current_servo_angle, angle[1]])
+        print(servo_1_angle)
+        pose_servo_record.append([current_servo_angle.copy(), angle[1]])
+    print(pose_servo_record[0][0][1])
+    print(pose_servo_record[-1][0][1])
 
     while True:
         # if not events.empty():
@@ -217,7 +220,6 @@ def main():
                 time1 = time.clock()
                 servo_commands = ServoWrite(kit, servo_angles)
                 timestamp = time.clock()
-                print("og: ", timestamp - time1)
                 if record_servos:
                     servo_recording.append([servo_commands, timestamp])
             all_commands = Drive(ABS_Z, ABS_X, left, right, drive_pins, all_commands)
@@ -295,11 +297,11 @@ def PlaybackRecording(servo_kit, servo_recording):
     servo_recording.pop(0)
     for servo_states in servo_recording:
         # print('hey', flush=True)
+        print(servo_states[0][1], servo_states[0][2], servo_states[1])
         time1 = time.clock()
-        ServoWrite(servo_kit, servo_states[0])
+        for i in range(len(servo_states[0])):
+            servo_kit.servo[i].angle = servo_states[0][i]
         time2 = time.clock()
-        print("servo write time: ", time2- time1)
-        print("recording time: ", servo_states[1] - recording_start_time)
         time.sleep((servo_states[1] - recording_start_time))
         recording_start_time = servo_states[1]
     print("done", flush=True)
