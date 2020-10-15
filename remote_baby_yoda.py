@@ -6,6 +6,7 @@ import collections
 import numpy as np
 from adafruit_servokit import ServoKit
 import RPi.GPIO as GPIO
+import multiprocessing
 
 
 dev = evdev.InputDevice('/dev/input/event2')
@@ -100,7 +101,6 @@ def main():
     right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
 
-    # servo_recording = collections.deque()
     servo_recording = []
     record_servos = False
     last_r1 = 0
@@ -116,10 +116,7 @@ def main():
         servo_2_angle = np.clip(90 + roll_angle, 0, 180)
         current_servo_angle[1] = servo_1_angle
         current_servo_angle[2] = servo_2_angle
-        print(servo_1_angle)
         pose_servo_record.append([current_servo_angle.copy(), angle[0]])
-    print(pose_servo_record[0][0][1])
-    print(pose_servo_record[-1][0][1])
 
     while True:
         # if not events.empty():
@@ -215,8 +212,9 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
+        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, pose_servo_record))
         if (time.clock() - timestamp) >= 0.01:
-            if len(threading.enumerate()) == 2:
+            if len(multiprocessing.active_children()) < 1:
                 time1 = time.clock()
                 servo_commands = ServoWrite(kit, servo_angles)
                 timestamp = time.clock()
@@ -226,10 +224,7 @@ def main():
             
             if triangle:
                 # playback
-                # playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, servo_recording))
-                # playback_thread = threading.Thread(target=PlaybackRecording, args=(kit, pose_servo_record))
-                # playback_thread.start()
-                PlaybackRecording(kit, pose_servo_record)
+                playback_thread.start()
                 triangle = False
 
 
@@ -297,13 +292,10 @@ def PlaybackRecording(servo_kit, servo_recording):
     current_start_time = time.clock()
     servo_recording.pop(0)
     for servo_states in servo_recording:
-        # print('hey', flush=True)
-        # print(servo_states[0][1], servo_states[0][2], servo_states[1])
         time1 = time.clock()
         for i in range(len(servo_states[0])):
             servo_kit.servo[i].angle = servo_states[0][i]
         time2 = time.clock()
-        print(time2 - time1)
         time.sleep((servo_states[1] - recording_start_time))
         recording_start_time = servo_states[1]
     print("done", flush=True)
