@@ -111,13 +111,14 @@ def main():
     pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
     pose_servo_record = []
     current_servo_angle = servo_angles
-    for i in range(pitch_data.shape[0]):
-        roll_angle = angle[1]
-        servo_1_angle = np.clip(90 - pitch_data_csv[i,1] + roll_data_csv[i,1], 0, 180)
-        servo_2_angle = np.clip(90 + pitch_data_csv[i,1] + roll_data_csv[i,1], 0, 180)
+    for i in range(pitch_data_csv.shape[0]):
+        roll = roll_data_csv[i,1] * 10
+        pitch = (pitch_data_csv[i,1] + 167) * 10
+        servo_1_angle = np.clip(90 - pitch + roll, 0, 180)
+        servo_2_angle = np.clip(90 + pitch + roll, 0, 180)
         current_servo_angle[1] = servo_1_angle
         current_servo_angle[2] = servo_2_angle
-        pose_servo_record.append([current_servo_angle.copy(), angle[i,0]])
+        pose_servo_record.append([current_servo_angle.copy(), pitch_data_csv[i,0]])
     
     # # Read from pitch file.
     # pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
