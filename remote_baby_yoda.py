@@ -106,14 +106,26 @@ def main():
     last_r1 = 0
     triangle = False
 
-    # Read from file.
-    pose_data = np.genfromtxt('data/face_angles_filtered.csv', delimiter=',')
-    pose_servo_record = []
+    # # Read from file.
+    # pose_data = np.genfromtxt('data/face_angles_filtered.csv', delimiter=',')
+    # pose_servo_record = []
+    # current_servo_angle = servo_angles
+    # for angle in pose_data:
+    #     roll_angle = angle[1]
+    #     servo_1_angle = np.clip(90 + roll_angle, 0, 180)
+    #     servo_2_angle = np.clip(90 + roll_angle, 0, 180)
+    #     current_servo_angle[1] = servo_1_angle
+    #     current_servo_angle[2] = servo_2_angle
+    #     pose_servo_record.append([current_servo_angle.copy(), angle[0]])
+    
+    # Read from pitch file.
+    pitch_data = np.genfromtxt('data/pitch_filtered.csv', delimiter=',')
+    pitch_servo_record = []
     current_servo_angle = servo_angles
-    for angle in pose_data:
-        roll_angle = angle[1]
-        servo_1_angle = np.clip(90 + roll_angle, 0, 180)
-        servo_2_angle = np.clip(90 + roll_angle, 0, 180)
+    for angle in pitch_data:
+        pitch_angle = angle[1]
+        servo_1_angle = np.clip(90 - pitch_angle, 0, 180)
+        servo_2_angle = np.clip(90 + pitch_angle, 0, 180)
         current_servo_angle[1] = servo_1_angle
         current_servo_angle[2] = servo_2_angle
         pose_servo_record.append([current_servo_angle.copy(), angle[0]])

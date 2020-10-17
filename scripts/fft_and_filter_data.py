@@ -2,7 +2,7 @@ import numpy as np
 from scipy.fft import fft
 from scipy import signal
 
-pose_data = np.genfromtxt('/home/manuel/projects/baby_yoda/roll.csv', delimiter=',')
+pose_data = np.genfromtxt('/home/manuel/projects/baby_yoda/pitch.csv', delimiter=',')
 
 # Number of sample points
 N = pose_data.shape[0]
@@ -30,6 +30,7 @@ numerator_coeffs, denominator_coeffs = signal.butter(order, 0.5, fs=1/T)
 filtered_signal = signal.lfilter(numerator_coeffs, denominator_coeffs, pose_data[:,1])
 
 plt.plot(pose_data[:,0], pose_data[:,1])
+filtered_signal = filtered_signal - 173
 plt.scatter(pose_data[:,0], filtered_signal)
 plt.show()
 plt.close()

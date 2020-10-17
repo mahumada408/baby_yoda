@@ -3,7 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
-df = pd.read_csv('data/roll_only_Skeleton.csv')
+df = pd.read_csv('data/pitch_only_Skeleton.csv')
 # print(df['Neck_PositionX'])
 
 time_df = pd.DataFrame({'timestamp': df['Time']/(10000000)})
@@ -12,8 +12,8 @@ rot = Rotation.from_quat(quat_df).as_euler('xyz', degrees=True)
 euler_df = pd.DataFrame(data=rot, columns=['x', 'y', 'z'])
 print(type(euler_df['x']))
 
-result = pd.concat([time_df, euler_df['x']], axis=1, sort=False)
-result.to_csv('roll.csv', index=False)
+result = pd.concat([time_df, euler_df['z']], axis=1, sort=False)
+result.to_csv('pitch.csv', index=False)
 
 plt.subplot(131)
 plt.plot(euler_df['x'])
