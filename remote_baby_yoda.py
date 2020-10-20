@@ -112,10 +112,11 @@ def main():
     pose_servo_record = []
     current_servo_angle = servo_angles
     for i in range(pitch_data_csv.shape[0]):
-        roll = roll_data_csv[i,1] * 10
-        pitch = (pitch_data_csv[i,1] + 167) * 10
-        servo_1_angle = np.clip(90 - pitch + roll, 0, 180)
-        servo_2_angle = np.clip(90 + pitch + roll, 0, 180)
+        roll = (roll_data_csv[i,1] - roll_data_csv[0,1]) * 10
+        pitch = (pitch_data_csv[i,1] - pitch_data_csv[0,1]) * 10
+        safety_offset = 30
+        servo_1_angle = np.clip(90 - pitch + roll, safety_offset, 180 - safety_offset)
+        servo_2_angle = np.clip(90 + pitch + roll, safety_offset, 180 - safety_offset)
         current_servo_angle[1] = servo_1_angle
         current_servo_angle[2] = servo_2_angle
         pose_servo_record.append([current_servo_angle.copy(), pitch_data_csv[i,0]])
@@ -309,6 +310,7 @@ def PlaybackRecording(servo_kit, servo_recording):
         time1 = time.clock()
         for i in range(len(servo_states[0])):
             servo_kit.servo[i].angle = servo_states[0][i]
+        print(f"serve 1: {servo_states[0][1]} | servo 2: {servo_states[0][2]}")
         time2 = time.clock()
         time.sleep((servo_states[1] - recording_start_time))
         recording_start_time = servo_states[1]
