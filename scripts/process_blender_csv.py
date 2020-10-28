@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
-df = pd.read_csv('data/cut_elbows_worldpos.csv')
+df = pd.read_csv('data/waves_worldpos.csv')
 
 body_parts = ["Hips",
               "Spine", 
@@ -68,7 +68,7 @@ def update_graph(iteration):
   y_list = []
   z_list = []
 
-  prefix = 'Skel55:'
+  prefix = 'Skel49:'
 
   # Get unit vector
   x_neck, y_neck, z_neck = get_3_point(df, prefix + 'Neck', iteration)
@@ -99,7 +99,7 @@ parser.add_argument('--show_plot', action='store_true',
                   help='Show visual animation')
 args = parser.parse_args()
 
-prefix = 'Skel55:'
+prefix = 'Skel49:'
 
 if args.show_plot:
   # Attaching axis to the figure

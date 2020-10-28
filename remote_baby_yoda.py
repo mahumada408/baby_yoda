@@ -106,20 +106,20 @@ def main():
     last_r1 = 0
     triangle = False
 
-    # Read from roll file.
-    roll_data_csv = np.genfromtxt('roll.csv', delimiter=',')
-    pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
-    pose_servo_record = []
-    current_servo_angle = servo_angles
-    for i in range(pitch_data_csv.shape[0]):
-        roll = (roll_data_csv[i,1] - roll_data_csv[0,1]) * 10
-        pitch = (pitch_data_csv[i,1] - pitch_data_csv[0,1]) * 10
-        safety_offset = 30
-        servo_1_angle = np.clip(90 - pitch + roll, safety_offset, 180 - safety_offset)
-        servo_2_angle = np.clip(90 + pitch + roll, safety_offset, 180 - safety_offset)
-        current_servo_angle[1] = servo_1_angle
-        current_servo_angle[2] = servo_2_angle
-        pose_servo_record.append([current_servo_angle.copy(), pitch_data_csv[i,0]])
+    # # Read from roll file.
+    # roll_data_csv = np.genfromtxt('roll.csv', delimiter=',')
+    # pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
+    # pose_servo_record = []
+    # current_servo_angle = servo_angles
+    # for i in range(pitch_data_csv.shape[0]):
+    #     roll = (roll_data_csv[i,1] - roll_data_csv[0,1]) * 10
+    #     pitch = (pitch_data_csv[i,1] - pitch_data_csv[0,1]) * 10
+    #     safety_offset = 30
+    #     servo_1_angle = np.clip(90 - pitch + roll, safety_offset, 180 - safety_offset)
+    #     servo_2_angle = np.clip(90 + pitch + roll, safety_offset, 180 - safety_offset)
+    #     current_servo_angle[1] = servo_1_angle
+    #     current_servo_angle[2] = servo_2_angle
+    #     pose_servo_record.append([current_servo_angle.copy(), pitch_data_csv[i,0]])
     
     # # Read from pitch file.
     # pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
@@ -132,6 +132,15 @@ def main():
     #     current_servo_angle[1] = servo_1_angle
     #     current_servo_angle[2] = servo_2_angle
     #     pose_servo_record.append([current_servo_angle.copy(), angle[0]])
+
+    # Read from elbow file.
+    elbow_csv = np.genfromtxt('elbows_100.csv', delimiter=',')
+    elbow_record = []
+    current_servo_angle = servo_angles
+    for i in range(elbow_csv.shape[0]):
+        current_servo_angle[5] = elbow_csv[i, 1]
+        current_servo_angle[8] = 180 - elbow_csv[i, 1]
+        elbow_record.append([current_servo_angle.copy(), elbow_csv[i,0]])
 
     while True:
         # if not events.empty():
@@ -227,7 +236,7 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
-        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, pose_servo_record))
+        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, elbow_record))
         if (time.clock() - timestamp) >= 0.01:
             if len(multiprocessing.active_children()) < 1:
                 time1 = time.clock()
