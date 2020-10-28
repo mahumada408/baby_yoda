@@ -129,7 +129,7 @@ def main():
     fig = plt.figure()
     ax = plt.axes(xlim=(-960, 0), ylim=(-720,0))
 
-    # Initialize scatter
+    # Initialize scatter plot
     scatter = ax.scatter(body_dictionary["Nose"][0,0], body_dictionary["Nose"][0,1])
 
     # Number of iterations
