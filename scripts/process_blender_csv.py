@@ -119,6 +119,7 @@ if args.show_plot:
   plt.show()
 
 shoulder_pitch_list = []
+shoulder_roll_list = []
 elbow_angle_list = []
 for i in range(len(df[prefix + 'RightShoulder.X'])):
 
@@ -131,10 +132,10 @@ for i in range(len(df[prefix + 'RightShoulder.X'])):
 
   shoulder_roll = np.arctan2(r_S_RA[1], r_S_RA[0]) * 180/np.pi
   shoulder_pitch = np.arctan2(r_S_RA[2], r_S_RA[1]) * 180/np.pi
-
   elbow_angle = angle_between(r_S_RA, r_RA_E)
   
   shoulder_pitch_list.append(shoulder_pitch)
+  shoulder_roll_list.append(shoulder_roll)
   elbow_angle_list.append(elbow_angle)
   print(f"roll: {shoulder_roll}, pitch: {shoulder_pitch}, elbow: {elbow_angle}")
 
@@ -145,11 +146,22 @@ desired_frequency_hz = 100
 total_points = int((df['Time'].iat[-1] - df['Time'].iat[0]) * desired_frequency_hz)
 hz_100_timeline = np.linspace(df['Time'].iat[0],df['Time'].iat[-1], num=total_points).reshape(total_points, 1)
 
+shoulder_pitch_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()), np.array(shoulder_pitch_list)).reshape(total_points,1)
+shoulder_roll_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()), np.array(shoulder_roll_list)).reshape(total_points,1)
 elbows_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()), np.array(elbow_angle_list)).reshape(total_points,1)
 
 print(hz_100_timeline.shape)
 print(elbows_100hz.shape)
-elbows_100hz = np.concatenate((hz_100_timeline, elbows_100hz), axis=1).reshape(total_points, 2)
-np.savetxt("elbows_100.csv", elbows_100hz, delimiter=',')
-plt.scatter(elbows_100hz[:,0], elbows_100hz[:,1])
+arm_angles_100hz = np.concatenate((hz_100_timeline, shoulder_roll_100hz, shoulder_pitch_100hz, elbows_100hz), axis=1).reshape(total_points, 4)
+np.savetxt("arm_angles_100.csv", arm_angles_100hz, delimiter=',')
+
+plt.subplot(311)
+plt.scatter(arm_angles_100hz[:,0], arm_angles_100hz[:,1])
+
+plt.subplot(312)
+plt.scatter(arm_angles_100hz[:,0], arm_angles_100hz[:,2])
+
+plt.subplot(313)
+plt.scatter(arm_angles_100hz[:,0], arm_angles_100hz[:,3])
+
 plt.show()

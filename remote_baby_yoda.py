@@ -106,20 +106,25 @@ def main():
     last_r1 = 0
     triangle = False
 
+    yoda_kinect_data_csv = np.genfromtxt('arm_angles_100.csv', delimiter=',')
+
     # # Read from roll file.
-    # roll_data_csv = np.genfromtxt('roll.csv', delimiter=',')
-    # pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
+    # shoulder_roll_data_csv = yoda_kinect_data_csv[:,1]
+    # shoulder_pitch_data_csv = yoda_kinect_data_csv[:,2]
+    # elbow_data_csv = yoda_kinect_data_csv[:,3]
     # pose_servo_record = []
     # current_servo_angle = servo_angles
-    # for i in range(pitch_data_csv.shape[0]):
-    #     roll = (roll_data_csv[i,1] - roll_data_csv[0,1]) * 10
-    #     pitch = (pitch_data_csv[i,1] - pitch_data_csv[0,1]) * 10
+    # for i in range(yoda_kinect_data_csv.shape[0]):
+    #     face_roll = (roll_data_csv[i,1] - roll_data_csv[0,1]) * 10
+    #     face_pitch = (pitch_data_csv[i,1] - pitch_data_csv[0,1]) * 10
     #     safety_offset = 30
-    #     servo_1_angle = np.clip(90 - pitch + roll, safety_offset, 180 - safety_offset)
-    #     servo_2_angle = np.clip(90 + pitch + roll, safety_offset, 180 - safety_offset)
+    #     servo_1_angle = np.clip(90 - face_pitch + face_roll, safety_offset, 180 - safety_offset)
+    #     servo_2_angle = np.clip(90 + face_pitch + face_roll, safety_offset, 180 - safety_offset)
     #     current_servo_angle[1] = servo_1_angle
     #     current_servo_angle[2] = servo_2_angle
-    #     pose_servo_record.append([current_servo_angle.copy(), pitch_data_csv[i,0]])
+    #     current_servo_angle[5] = elbow_csv[i, 1]
+    #     current_servo_angle[8] = 180 - elbow_csv[i, 1]
+    #     pose_servo_record.append([current_servo_angle.copy(), yoda_kinect_data_csv[i,0]])
     
     # # Read from pitch file.
     # pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
@@ -134,13 +139,28 @@ def main():
     #     pose_servo_record.append([current_servo_angle.copy(), angle[0]])
 
     # Read from elbow file.
-    elbow_csv = np.genfromtxt('elbows_100.csv', delimiter=',')
-    elbow_record = []
+    # elbow_csv = np.genfromtxt('elbows_100.csv', delimiter=',')
+    # elbow_record = []
+    # current_servo_angle = servo_angles
+    # for i in range(elbow_csv.shape[0]):
+    #     current_servo_angle[5] = elbow_csv[i, 1]
+    #     current_servo_angle[8] = 180 - elbow_csv[i, 1]
+    #     elbow_record.append([current_servo_angle.copy(), elbow_csv[i,0]])
+
+    # Read from roll file.
+    shoulder_roll_data_csv = yoda_kinect_data_csv[:,1]
+    shoulder_pitch_data_csv = yoda_kinect_data_csv[:,2]
+    elbow_data_csv = yoda_kinect_data_csv[:,3]
+    pose_servo_record = []
     current_servo_angle = servo_angles
-    for i in range(elbow_csv.shape[0]):
-        current_servo_angle[5] = elbow_csv[i, 1]
-        current_servo_angle[8] = 180 - elbow_csv[i, 1]
-        elbow_record.append([current_servo_angle.copy(), elbow_csv[i,0]])
+    for i in range(yoda_kinect_data_csv.shape[0]):
+        # Shoulder 1
+        servo_angles[3] = shoulder_roll_data_csv[i]
+        # Shoulder 2
+        servo_angles[4] = shoulder_pitch_data_csv[i]
+        # Elbow
+        current_servo_angle[5] = elbow_csv[i]
+        pose_servo_record.append([current_servo_angle.copy(), yoda_kinect_data_csv[i,0]])
 
     while True:
         # if not events.empty():
@@ -206,8 +226,10 @@ def main():
         if o_held:
             elbow = np.clip(elbow - 0.05, 0, 180)
         if up_down != 0:
+            # Shoulder pitch
             shoulder_2 = np.clip(shoulder_2 - up_down/20, 45, 135)
         if left_right != 0:
+            # Shoulder roll
             shoulder_1 = np.clip(shoulder_1 - left_right/20, 10, 90)
 
         yaw_data = CleanAngle(yaw, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
@@ -236,7 +258,7 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
-        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, elbow_record))
+        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, pose_servo_record))
         if (time.clock() - timestamp) >= 0.01:
             if len(multiprocessing.active_children()) < 1:
                 time1 = time.clock()
