@@ -7,7 +7,7 @@ import numpy as np
 from adafruit_servokit import ServoKit
 import RPi.GPIO as GPIO
 import multiprocessing
-import scripts.yoda_helper
+import scripts.yoda_helper as yoda_helper
 
 
 dev = evdev.InputDevice('/dev/input/event2')
@@ -107,62 +107,8 @@ def main():
     last_r1 = 0
     triangle = False
 
-    # yoda_kinect_data_csv = np.genfromtxt('arm_angles_100.csv', delimiter=',')
-    pose_servo_record = yoda_helper.csv_to_servo_angles('arm_angles_100.csv')
-
-    # # Read from roll file.
-    # shoulder_roll_data_csv = yoda_kinect_data_csv[:,1]
-    # shoulder_pitch_data_csv = yoda_kinect_data_csv[:,2]
-    # elbow_data_csv = yoda_kinect_data_csv[:,3]
-    # pose_servo_record = []
-    # current_servo_angle = servo_angles
-    # for i in range(yoda_kinect_data_csv.shape[0]):
-    #     face_roll = (roll_data_csv[i,1] - roll_data_csv[0,1]) * 10
-    #     face_pitch = (pitch_data_csv[i,1] - pitch_data_csv[0,1]) * 10
-    #     safety_offset = 30
-    #     servo_1_angle = np.clip(90 - face_pitch + face_roll, safety_offset, 180 - safety_offset)
-    #     servo_2_angle = np.clip(90 + face_pitch + face_roll, safety_offset, 180 - safety_offset)
-    #     current_servo_angle[1] = servo_1_angle
-    #     current_servo_angle[2] = servo_2_angle
-    #     current_servo_angle[5] = elbow_csv[i, 1]
-    #     current_servo_angle[8] = 180 - elbow_csv[i, 1]
-    #     pose_servo_record.append([current_servo_angle.copy(), yoda_kinect_data_csv[i,0]])
-    
-    # # Read from pitch file.
-    # pitch_data_csv = np.genfromtxt('pitch.csv', delimiter=',')
-    # pose_servo_record = []
-    # current_servo_angle = servo_angles
-    # for angle in pitch_data_csv:
-    #     pitch_angle = angle[1] * 3
-    #     servo_1_angle = np.clip(90 - pitch_angle, 0, 180)
-    #     servo_2_angle = np.clip(90 + pitch_angle, 0, 180)
-    #     current_servo_angle[1] = servo_1_angle
-    #     current_servo_angle[2] = servo_2_angle
-    #     pose_servo_record.append([current_servo_angle.copy(), angle[0]])
-
-    # Read from elbow file.
-    # elbow_csv = np.genfromtxt('elbows_100.csv', delimiter=',')
-    # elbow_record = []
-    # current_servo_angle = servo_angles
-    # for i in range(elbow_csv.shape[0]):
-    #     current_servo_angle[5] = elbow_csv[i, 1]
-    #     current_servo_angle[8] = 180 - elbow_csv[i, 1]
-    #     elbow_record.append([current_servo_angle.copy(), elbow_csv[i,0]])
-
-    # Read from roll file.
-    # shoulder_roll_data_csv = yoda_kinect_data_csv[:,1]
-    # shoulder_pitch_data_csv = yoda_kinect_data_csv[:,2]
-    # elbow_data_csv = yoda_kinect_data_csv[:,3]
-    # pose_servo_record = []
-    # current_servo_angle = servo_angles
-    # for i in range(yoda_kinect_data_csv.shape[0]):
-    #     # Shoulder 1
-    #     servo_angles[3] = shoulder_roll_data_csv[i]
-    #     # Shoulder 2
-    #     servo_angles[4] = shoulder_pitch_data_csv[i]
-    #     # Elbow
-    #     current_servo_angle[5] = elbow_csv[i]
-    #     pose_servo_record.append([current_servo_angle.copy(), yoda_kinect_data_csv[i,0]])
+    # Get pose data from file.
+    pose_servo_record = yoda_helper.csv_to_servo_angles('arm_angles_100.csv', servo_angles)
 
     while True:
         # if not events.empty():
