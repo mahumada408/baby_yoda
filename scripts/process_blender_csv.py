@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
-df = pd.read_csv('data/waves_worldpos.csv')
+df = pd.read_csv('data/drinking_from_cup_worldpos.csv')
 
 body_parts = ["Hips",
               "Spine", 
@@ -68,7 +68,7 @@ def update_graph(iteration):
   y_list = []
   z_list = []
 
-  prefix = 'Skel49:'
+  prefix = 'Skel547:'
 
   # Get unit vector
   x_neck, y_neck, z_neck = get_3_point(df, prefix + 'Neck', iteration)
@@ -99,7 +99,7 @@ parser.add_argument('--show_plot', action='store_true',
                   help='Show visual animation')
 args = parser.parse_args()
 
-prefix = 'Skel49:'
+prefix = 'Skel547:'
 
 if args.show_plot:
   # Attaching axis to the figure
@@ -152,7 +152,7 @@ elbows_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()), np.arra
 
 print(hz_100_timeline.shape)
 print(elbows_100hz.shape)
-arm_angles_100hz = np.concatenate((hz_100_timeline, shoulder_roll_100hz, shoulder_pitch_100hz, elbows_100hz), axis=1).reshape(total_points, 4)
+arm_angles_100hz = np.concatenate((hz_100_timeline, -shoulder_roll_100hz - 20, shoulder_pitch_100hz + 220, elbows_100hz), axis=1).reshape(total_points, 4)
 np.savetxt("arm_angles_100.csv", arm_angles_100hz, delimiter=',')
 
 plt.subplot(311)
