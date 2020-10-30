@@ -32,8 +32,6 @@ body_parts = ["Hips",
               "LeftFoot",
               "LeftToeBase",
               "LeftToeBaseEnd",]
-global previous_pitch
-previous_pitch = 0.0
 
 def get_3_point(df, body_name, index):
   """
@@ -139,9 +137,8 @@ for i in range(len(df[prefix + 'RightShoulder.X'])):
   elbow_angle_list.append(elbow_angle)
   print(f"roll: {shoulder_roll}, pitch: {shoulder_pitch}, elbow: {elbow_angle}")
 
-# plt.scatter(df['Time'],elbow_angle_list)
-# plt.show()
 
+# Interpolate commands to 100 hz.
 desired_frequency_hz = 100
 total_points = int((df['Time'].iat[-1] - df['Time'].iat[0]) * desired_frequency_hz)
 hz_100_timeline = np.linspace(df['Time'].iat[0],df['Time'].iat[-1], num=total_points).reshape(total_points, 1)
@@ -150,8 +147,7 @@ shoulder_pitch_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()),
 shoulder_roll_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()), np.array(shoulder_roll_list)).reshape(total_points,1)
 elbows_100hz = np.interp(hz_100_timeline, np.array(df['Time'].tolist()), np.array(elbow_angle_list)).reshape(total_points,1)
 
-print(hz_100_timeline.shape)
-print(elbows_100hz.shape)
+# Combine all commands and save to csv.
 arm_angles_100hz = np.concatenate((hz_100_timeline, -shoulder_roll_100hz - 20, shoulder_pitch_100hz + 220, elbows_100hz), axis=1).reshape(total_points, 4)
 np.savetxt("arm_angles_100.csv", arm_angles_100hz, delimiter=',')
 
