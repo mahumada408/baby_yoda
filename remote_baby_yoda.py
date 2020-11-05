@@ -7,6 +7,7 @@ import numpy as np
 from adafruit_servokit import ServoKit
 import RPi.GPIO as GPIO
 import multiprocessing
+import scripts.yoda_helper as yoda_helper
 
 
 dev = evdev.InputDevice('/dev/input/event2')
@@ -106,17 +107,8 @@ def main():
     last_r1 = 0
     triangle = False
 
-    # Read from file.
-    pose_data = np.genfromtxt('data/face_angles_filtered.csv', delimiter=',')
-    pose_servo_record = []
-    current_servo_angle = servo_angles
-    for angle in pose_data:
-        roll_angle = angle[1]
-        servo_1_angle = np.clip(90 + roll_angle, 0, 180)
-        servo_2_angle = np.clip(90 + roll_angle, 0, 180)
-        current_servo_angle[1] = servo_1_angle
-        current_servo_angle[2] = servo_2_angle
-        pose_servo_record.append([current_servo_angle.copy(), angle[0]])
+    # Get pose data from file.
+    pose_servo_record = yoda_helper.csv_to_servo_angles('arm_angles_100.csv', servo_angles)
 
     while True:
         # if not events.empty():
@@ -182,8 +174,10 @@ def main():
         if o_held:
             elbow = np.clip(elbow - 0.05, 0, 180)
         if up_down != 0:
+            # Shoulder pitch
             shoulder_2 = np.clip(shoulder_2 - up_down/20, 45, 135)
         if left_right != 0:
+            # Shoulder roll
             shoulder_1 = np.clip(shoulder_1 - left_right/20, 10, 90)
 
         yaw_data = CleanAngle(yaw, yaw_data.current_angle, yaw_data.previous_time, yaw_data.rate_lim)
@@ -295,6 +289,7 @@ def PlaybackRecording(servo_kit, servo_recording):
         time1 = time.clock()
         for i in range(len(servo_states[0])):
             servo_kit.servo[i].angle = servo_states[0][i]
+        print(f"serve 1: {servo_states[0][1]} | servo 2: {servo_states[0][2]}")
         time2 = time.clock()
         time.sleep((servo_states[1] - recording_start_time))
         recording_start_time = servo_states[1]
