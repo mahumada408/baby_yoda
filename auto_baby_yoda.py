@@ -7,6 +7,7 @@ import numpy as np
 from adafruit_servokit import ServoKit
 import RPi.GPIO as GPIO
 import multiprocessing
+import serial
 import scripts.yoda_helper as yoda_helper
 
 
@@ -30,18 +31,27 @@ def window_threshold(signal, lower, upper):
 def worker():
     while True:
         input_string = ""
+        input_commands = []
         input_string = ser.readline().decode('utf-8')
-        if "c" in state:
+        if "c" in input_string:
             # Control signal. Remove leading 'c' character.
-            input_string.replace('c', '')
+            # input_string.replace('c', '')
+            input_string = input_string[1:]
+            input_string = input_string.replace("\n","")
             input_string = input_string.split(',')
-            event_deque.append(input_string)
+            input_commands = [-int(command) for command in input_string]
+            for i in range(2):
+                input_commands.append(-int(input_string[i]))
+            # print(input_commands)
+            event_deque.append(input_commands)
 
 def main():
     kit = ServoKit(channels=16)
 
     t = threading.Thread(target=worker)
     t.start()
+
+    timestamp = time.clock()
 
     # Setup for drive system.
     pwm1 = 16
@@ -78,14 +88,17 @@ def main():
     right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
 
-     while True:
+    left_command = 0
+    right_command = 0
+    while True:
         if event_deque:
             commands = event_deque.popleft()
             left_command = commands[0]
-            right_command = commands[0]
-        print(f"left: {left_command} right: {right_command}")
+            right_command = commands[1]
+        # print(f"left: {left_command} right: {right_command}")
         # Writes at 100Hz
         if (time.clock() - timestamp) >= 0.01:
+            # print(f"left: {left_command} right: {right_command}")
             all_commands = DriveAuto(left_command, right_command, left, right, drive_pins, all_commands)
 
 
@@ -146,8 +159,8 @@ def Drive(longitudinal_duty_cycle, lateral_duty_cycle, left_pwm, right_pwm, driv
 
 def DriveAuto(left_drive_command, right_drive_command, left_pwm, right_pwm, drive_pins, all_commands):
     GPIO.output(drive_pins.in1, int(right_drive_command > 0))
-    GPIO.output(drive_pins.in2, int(right_drive_command < 0))
-    GPIO.output(drive_pins.in3, int(left_drive_command < 0))
+    GPIO.output(drive_pins.in2, int(right_drive_command <= 0))
+    GPIO.output(drive_pins.in3, int(left_drive_command <= 0))
     GPIO.output(drive_pins.in4, int(left_drive_command > 0))
 
     left_drive_command = np.interp(left_drive_command, [-192,192], [-100,100])
@@ -160,7 +173,8 @@ def DriveAuto(left_drive_command, right_drive_command, left_pwm, right_pwm, driv
     right_drive_commands = DriveCommands(current_command=0, previous_command=right_drive_command_test, dt=all_commands.right.dt, accel_limit=all_commands.right.accel_limit)
     
     new_all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
-    
+
+    print(f"left: {np.abs(left_drive_command)} right: {np.abs(right_drive_command)}")
     left_pwm.ChangeDutyCycle(np.abs(left_drive_command))
     right_pwm.ChangeDutyCycle(np.abs(right_drive_command))
     return new_all_commands
