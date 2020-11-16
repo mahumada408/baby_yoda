@@ -90,6 +90,7 @@ def main():
 
     left_command = 0
     right_command = 0
+    limit_rate = 0.75
     while True:
         if event_deque:
             commands = event_deque.popleft()
@@ -99,7 +100,7 @@ def main():
         # Writes at 100Hz
         if (time.clock() - timestamp) >= 0.01:
             # print(f"left: {left_command} right: {right_command}")
-            all_commands = DriveAuto(left_command, right_command, left, right, drive_pins, all_commands)
+            all_commands = DriveAuto(left_command * limit_rate, right_command * limit_rate, left, right, drive_pins, all_commands)
 
 
 # Algorithm from
