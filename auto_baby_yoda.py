@@ -1,14 +1,17 @@
+import collections
 import evdev
+import numpy as np
 import time
 import threading
 from queue import Queue
-import collections
-import numpy as np
+
 from adafruit_servokit import ServoKit
 import RPi.GPIO as GPIO
 import multiprocessing
 import serial
+
 import scripts.yoda_helper as yoda_helper
+import hw.pin_assignments as yoda_pins
 
 
 # dev = evdev.InputDevice('/dev/input/event2')
@@ -19,6 +22,8 @@ ServoData = collections.namedtuple("ServoData", "current_angle previous_time rat
 DrivePins = collections.namedtuple("DrivePins", "pwm1 pwm2 in1 in2 in3 in4")
 DriveCommands = collections.namedtuple("DriveCommands", "current_command previous_command dt accel_limit")
 AllCommands = collections.namedtuple("AllCommands", "left right")
+
+MAX_DUTY = 100
 
 # Serial com
 ser = serial.Serial('/dev/ttyS0', 115200, timeout=1)
@@ -77,13 +82,13 @@ def main():
     GPIO.output(in4, GPIO.LOW)
 
     pwm_freq = 100
-    max_duty = 20
+    max_duty = 50
 
     left = GPIO.PWM(pwm1, pwm_freq)
     right = GPIO.PWM(pwm2, pwm_freq)
     left.start(0) # Start at 0% duty cycle
     right.start(0) # Start at 0% duty cycle
-    max_accel = 50
+    max_accel = 100
     left_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
@@ -100,7 +105,7 @@ def main():
         # Writes at 100Hz
         if (time.clock() - timestamp) >= 0.01:
             # print(f"left: {left_command} right: {right_command}")
-            all_commands = DriveAuto(left_command * limit_rate, right_command * limit_rate, left, right, drive_pins, all_commands)
+            all_commands = DriveAuto(right_command * limit_rate, left_command * limit_rate, left, right, drive_pins, all_commands)
 
 
 # Algorithm from
@@ -110,7 +115,9 @@ def filter(current_command, previous_command, smoothing_factor):
 
 def ClampRate(previous_command, current_command, time_dt, rate_limit):
     current_rate = (current_command - previous_command) / time_dt
+    # print(f"current accel: {current_rate}")
     if (abs(current_rate) > rate_limit):
+        # print("Limiting accel!")
         return previous_command + np.sign(current_rate) * rate_limit * time_dt
     else:
         return current_command
@@ -127,45 +134,17 @@ def CleanAngle(raw_data, previous_angle, previous_time, rate_lim):
 
     return servo_stuff
 
-def Drive(longitudinal_duty_cycle, lateral_duty_cycle, left_pwm, right_pwm, drive_pins, all_commands):
-    left_drive_command = longitudinal_duty_cycle + lateral_duty_cycle
-    right_drive_command = longitudinal_duty_cycle - lateral_duty_cycle
-
-    if WindowThresh(longitudinal_duty_cycle, 15):
-        # Mode for only driving straight with no steer
-        GPIO.output(drive_pins.in1, int(longitudinal_duty_cycle < 0))
-        GPIO.output(drive_pins.in2, int(longitudinal_duty_cycle > 0))
-        GPIO.output(drive_pins.in3, int(longitudinal_duty_cycle > 0))
-        GPIO.output(drive_pins.in4, int(longitudinal_duty_cycle < 0))
-    else:
-        GPIO.output(drive_pins.in1, int(right_drive_command > 0))
-        GPIO.output(drive_pins.in2, int(right_drive_command < 0))
-        GPIO.output(drive_pins.in3, int(left_drive_command < 0))
-        GPIO.output(drive_pins.in4, int(left_drive_command > 0))
-
-    left_drive_command = np.clip(left_drive_command, -100, 100)
-    right_drive_command = np.clip(right_drive_command, -100, 100)
-
-    left_drive_command_test = ClampRate(all_commands.left.previous_command, left_drive_command, all_commands.left.dt, all_commands.left.accel_limit)
-    right_drive_command_test = ClampRate(all_commands.right.previous_command, right_drive_command, all_commands.right.dt, all_commands.right.accel_limit)
-
-    left_drive_commands = DriveCommands(current_command=0, previous_command=left_drive_command_test, dt=all_commands.left.dt, accel_limit=all_commands.left.accel_limit)
-    right_drive_commands = DriveCommands(current_command=0, previous_command=right_drive_command_test, dt=all_commands.right.dt, accel_limit=all_commands.right.accel_limit)
-    
-    new_all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
-    
-    left_pwm.ChangeDutyCycle(np.abs(left_drive_command))
-    right_pwm.ChangeDutyCycle(np.abs(right_drive_command))
-    return new_all_commands
-
 def DriveAuto(left_drive_command, right_drive_command, left_pwm, right_pwm, drive_pins, all_commands):
     GPIO.output(drive_pins.in1, int(right_drive_command > 0))
     GPIO.output(drive_pins.in2, int(right_drive_command <= 0))
     GPIO.output(drive_pins.in3, int(left_drive_command <= 0))
     GPIO.output(drive_pins.in4, int(left_drive_command > 0))
 
-    left_drive_command = np.interp(left_drive_command, [-192,192], [-100,100])
-    right_drive_command = np.interp(right_drive_command, [-192,192], [-100,100])
+    # Interpolate between the Android's app's 192 max command to max pwm command. 
+    max_android_app_command = 192
+    max_pwm_command = 100
+    left_drive_command = np.interp(left_drive_command, [-max_android_app_command, max_android_app_command], [-max_pwm_command, max_pwm_command])
+    right_drive_command = np.interp(right_drive_command, [-max_android_app_command, max_android_app_command], [-max_pwm_command, max_pwm_command])
 
     left_drive_command_test = ClampRate(all_commands.left.previous_command, left_drive_command, all_commands.left.dt, all_commands.left.accel_limit)
     right_drive_command_test = ClampRate(all_commands.right.previous_command, right_drive_command, all_commands.right.dt, all_commands.right.accel_limit)
@@ -175,9 +154,10 @@ def DriveAuto(left_drive_command, right_drive_command, left_pwm, right_pwm, driv
     
     new_all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
 
-    print(f"left: {np.abs(left_drive_command)} right: {np.abs(right_drive_command)}")
-    left_pwm.ChangeDutyCycle(np.abs(left_drive_command))
-    right_pwm.ChangeDutyCycle(np.abs(right_drive_command))
+    # print(f"original command: {left_drive_command}")
+    print(f"clamped command: {np.abs(left_drive_command_test)} | {np.abs(right_drive_command_test)}")
+    left_pwm.ChangeDutyCycle(np.clip(np.abs(left_drive_command_test), 0, MAX_DUTY))
+    right_pwm.ChangeDutyCycle(np.clip(np.abs(right_drive_command_test), 0, MAX_DUTY))
     return new_all_commands
 
 def WindowThresh(signal, threshold):
