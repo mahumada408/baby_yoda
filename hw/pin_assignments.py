@@ -1,10 +1,10 @@
 # Pins for drive system.
-pwm1 = 16
-pwm2 = 13
-in1 = 20
-in2 = 21
-in3 = 5
-in4 = 6
+PWM1 = 16
+PWM2 = 13
+IN1 = 20
+IN2 = 21
+IN3 = 5
+IN4 = 6
 
 # Pins for Sonar
 TRIG = 23

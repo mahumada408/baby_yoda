@@ -14,16 +14,19 @@ import scripts.yoda_helper as yoda_helper
 import hw.pin_assignments as yoda_pins
 
 
-# dev = evdev.InputDevice('/dev/input/event2')
+MAX_DUTY = 100
+SPEED_OF_SOUND = 342000 # [mm/s]
+MIN_DISTANCE_MM = 150 # [mm]
+
 events = Queue()
 event_deque = collections.deque()
+
+sonar_distance_mm = 0.0
 
 ServoData = collections.namedtuple("ServoData", "current_angle previous_time rate_lim")
 DrivePins = collections.namedtuple("DrivePins", "pwm1 pwm2 in1 in2 in3 in4")
 DriveCommands = collections.namedtuple("DriveCommands", "current_command previous_command dt accel_limit")
 AllCommands = collections.namedtuple("AllCommands", "left right")
-
-MAX_DUTY = 100
 
 # Serial com
 ser = serial.Serial('/dev/ttyS0', 115200, timeout=1)
@@ -47,8 +50,26 @@ def worker():
             input_commands = [-int(command) for command in input_string]
             for i in range(2):
                 input_commands.append(-int(input_string[i]))
-            # print(input_commands)
+            print(input_commands)
             event_deque.append(input_commands)
+
+def sonar_worker():
+    global sonar_distance_mm
+    while True:
+        # The HC-SR04 sensor requires a short 10uS pulse to trigger the module.
+        GPIO.output(yoda_pins.TRIG, True)
+        time.sleep(0.00001)
+        GPIO.output(yoda_pins.TRIG, False)
+
+        while GPIO.input(yoda_pins.ECHO) == 0:
+            pulse_start = time.time()
+
+        while GPIO.input(yoda_pins.ECHO) == 1:
+            pulse_end = time.time()
+
+        pulse_duration = pulse_end - pulse_start
+        sonar_distance_mm = pulse_duration * SPEED_OF_SOUND/2
+        print(sonar_distance_mm)
 
 def main():
     kit = ServoKit(channels=16)
@@ -58,34 +79,36 @@ def main():
 
     timestamp = time.clock()
 
-    # Setup for drive system.
-    pwm1 = 16
-    pwm2 = 13
-    in1 = 20
-    in2 = 21
-    in3 = 5
-    in4 = 6
-    drive_pins = DrivePins(pwm1=16, pwm2=13, in1=20, in2=21, in3=5, in4=6)
+    drive_pins = DrivePins(pwm1=yoda_pins.PWM1, pwm2=yoda_pins.PWM2, in1=yoda_pins.IN1, in2=yoda_pins.IN2,
+                           in3=yoda_pins.IN3, in4=yoda_pins.IN4)
 
     GPIO.setmode(GPIO.BCM)
-    GPIO.setup(pwm1, GPIO.OUT)
-    GPIO.setup(pwm2, GPIO.OUT)
-    GPIO.setup(in1, GPIO.OUT)
-    GPIO.setup(in2, GPIO.OUT)
-    GPIO.setup(in3, GPIO.OUT)
-    GPIO.setup(in4, GPIO.OUT)
+
+    # Setup for sonar.
+    GPIO.setup(yoda_pins.TRIG, GPIO.OUT)
+    GPIO.setup(yoda_pins.ECHO, GPIO.IN)
+    sonar_thread = threading.Thread(target=sonar_worker)
+    sonar_thread.start()
+
+    # Setup for drive.
+    GPIO.setup(drive_pins.pwm1, GPIO.OUT)
+    GPIO.setup(drive_pins.pwm2, GPIO.OUT)
+    GPIO.setup(drive_pins.in1, GPIO.OUT)
+    GPIO.setup(drive_pins.in2, GPIO.OUT)
+    GPIO.setup(drive_pins.in3, GPIO.OUT)
+    GPIO.setup(drive_pins.in4, GPIO.OUT)
 
     # Default to drive forward
-    GPIO.output(in1, GPIO.LOW)
-    GPIO.output(in2, GPIO.HIGH)
-    GPIO.output(in3, GPIO.HIGH)
-    GPIO.output(in4, GPIO.LOW)
+    GPIO.output(drive_pins.in1, GPIO.LOW)
+    GPIO.output(drive_pins.in2, GPIO.HIGH)
+    GPIO.output(drive_pins.in3, GPIO.HIGH)
+    GPIO.output(drive_pins.in4, GPIO.LOW)
 
     pwm_freq = 100
     max_duty = 50
 
-    left = GPIO.PWM(pwm1, pwm_freq)
-    right = GPIO.PWM(pwm2, pwm_freq)
+    left = GPIO.PWM(drive_pins.pwm1, pwm_freq)
+    right = GPIO.PWM(drive_pins.pwm2, pwm_freq)
     left.start(0) # Start at 0% duty cycle
     right.start(0) # Start at 0% duty cycle
     max_accel = 100
@@ -155,7 +178,11 @@ def DriveAuto(left_drive_command, right_drive_command, left_pwm, right_pwm, driv
     new_all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
 
     # print(f"original command: {left_drive_command}")
-    print(f"clamped command: {np.abs(left_drive_command_test)} | {np.abs(right_drive_command_test)}")
+    # print(f"clamped command: {np.abs(left_drive_command_test)} | {np.abs(right_drive_command_test)}")
+    # if sonar_distance_mm <= MIN_DISTANCE_MM:
+    #     print("min dist")
+    #     left_drive_command_test = 0
+    #     right_drive_command_test = 0
     left_pwm.ChangeDutyCycle(np.clip(np.abs(left_drive_command_test), 0, MAX_DUTY))
     right_pwm.ChangeDutyCycle(np.clip(np.abs(right_drive_command_test), 0, MAX_DUTY))
     return new_all_commands
