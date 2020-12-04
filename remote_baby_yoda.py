@@ -90,7 +90,7 @@ def main():
     GPIO.output(in3, GPIO.HIGH)
     GPIO.output(in4, GPIO.LOW)
 
-    pwm_freq = 100
+    pwm_freq = 1000
     max_duty = 20
 
     left = GPIO.PWM(pwm1, pwm_freq)
@@ -135,8 +135,12 @@ def main():
                 ABS_RZ = np.interp(float(event.value), [0,255], [10,90])
             elif 'BTN_TR' in str(evdev.categorize(event)):
                 # R1
+                # if int(event.value) and int(event.code) == 311:
+                #     record_servos = ~record_servos
                 if int(event.value) and int(event.code) == 311:
-                    record_servos = ~record_servos
+                    r1_held = True
+                else:
+                    r1_held = False
             elif 'BTN_TL' in str(evdev.categorize(event)):
                 # L1
                 if int(event.value) and int(event.code) == 310:

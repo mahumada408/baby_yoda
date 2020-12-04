@@ -109,7 +109,7 @@ def main():
     right = GPIO.PWM(drive_pins.pwm2, pwm_freq)
     left.start(0) # Start at 0% duty cycle
     right.start(0) # Start at 0% duty cycle
-    max_accel = 100
+    max_accel = 6000
     left_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     right_drive_commands = DriveCommands(current_command=0, previous_command=0, dt=0.01, accel_limit=max_accel)
     all_commands = AllCommands(left=left_drive_commands, right=right_drive_commands)
@@ -137,7 +137,7 @@ def filter(current_command, previous_command, smoothing_factor):
 
 def ClampRate(previous_command, current_command, time_dt, rate_limit):
     current_rate = (current_command - previous_command) / time_dt
-    # print(f"current accel: {current_rate}")
+    print(f"current accel: {current_rate}", end=' ')
     if (abs(current_rate) > rate_limit):
         # print("Limiting accel!")
         return previous_command + np.sign(current_rate) * rate_limit * time_dt
@@ -179,6 +179,7 @@ def DriveAuto(left_drive_command, right_drive_command, left_pwm, right_pwm, driv
     if sonar_distance_mm <= MIN_DISTANCE_MM:
         left_drive_command_test = 0
         right_drive_command_test = 0
+    print(f"left: {left_drive_command_test}, right: {right_drive_command_test}")
     left_pwm.ChangeDutyCycle(np.clip(np.abs(left_drive_command_test), 0, MAX_DUTY))
     right_pwm.ChangeDutyCycle(np.clip(np.abs(right_drive_command_test), 0, MAX_DUTY))
     return new_all_commands
