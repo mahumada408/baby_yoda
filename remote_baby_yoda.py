@@ -135,8 +135,6 @@ def main():
                 ABS_RZ = np.interp(float(event.value), [0,255], [10,90])
             elif 'BTN_TR' in str(evdev.categorize(event)):
                 # R1
-                # if int(event.value) and int(event.code) == 311:
-                #     record_servos = ~record_servos
                 if int(event.value) and int(event.code) == 311:
                     r1_held = True
                 else:
@@ -168,6 +166,12 @@ def main():
             elif 'ABS_HAT0X' in str(evdev.categorize(event)):
                 # d pad right left
                 left_right = float(event.value)
+            elif 'BTN_THUMBR' in str(evdev.categorize(event)):
+                # R3
+                if int(event.value) and int(event.code) == 318:
+                    record_servos = ~record_servos
+                    if record_servos:
+                        servo_recording.clear()
 
         if r1_held:
             yaw = np.clip(yaw + 0.1, -45, 45)
@@ -210,7 +214,7 @@ def main():
         servo_angles[8] = 180 - elbow_data.current_angle  
 
         # Writes at 100Hz
-        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, pose_servo_record))
+        playback_thread = multiprocessing.Process(target=PlaybackRecording, args=(kit, servo_recording))
         if (time.clock() - timestamp) >= 0.01:
             if len(multiprocessing.active_children()) < 1:
                 time1 = time.clock()
